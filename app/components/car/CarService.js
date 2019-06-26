@@ -1,42 +1,77 @@
 import Car from "../../models/Car.js";
 
+// @ts-ignore
+let _carApi = axios.create({
+  baseURL: 'https://bcw-sandbox.herokuapp.com/api/cars',
+})
 
 let _state = {
   cars: []
 }
-
-_state.cars.push( new Car({make:"Buick", model:"Century", year:1989, color:"Cherry"}))
-_state.cars.push(new Car({make:"Lambo", model:"diablo", year:2006, color:"Canary Yellow"}))
-
 
 let _subscribers = {
   cars: []
 }
 
 
-function setState(propName, data){
+function setState(propName, data) {
   _state[propName] = data
   _subscribers[propName].forEach(fn => fn());
 }
 
-export default class CarService{
-  constructor(){
-    console.log("car service works", this.Cars)
+export default class CarService {
+  placeBid(carId) {
+    let carToUpdate = this.Cars.find(c => c._id == carId)
+    if (!carToUpdate) return alert("car doesn't exist here")
+    carToUpdate.price *= 1.1
+    _carApi.put(carId, carToUpdate)
+      .then(res => {
+        let cars = this.Cars
+        let index = cars.findIndex(c => c._id == carId)
+        // cars.splice(index, 1, carToUpdate) //replaces old object with a new one (carToUpdate)
+        cars[index].price = carToUpdate.price //updates price property on existing object
+        setState('cars', cars)
+      })
   }
-
-  addSubscriber(propName, fn){
+  purchase(carId) {
+    _carApi.delete(carId)
+      .then(() => {
+        let cars = this.Cars
+        let index = cars.findIndex(c => c._id == carId)
+        cars.splice(index, 1)
+        setState('cars', cars)
+      })
+      .catch(err => console.error(err))
+  }
+  getCars() {
+    _carApi.get('')
+      .then(res => {
+        let serverCars = res.data.data
+        let cars = serverCars.map(c => new Car(c))
+        setState("cars", cars)
+      })
+      .catch(err => console.error(err))
+  }
+  addSubscriber(propName, fn) {
     _subscribers[propName].push(fn)
   }
 
 
-  get Cars(){
+  get Cars() {
     return _state.cars.map(car => new Car(car))
   }
 
-  addCar(newCar){
-    let temp = this.Cars
-    temp.push(new Car(newCar))
-    setState("cars", temp) 
+  addCar(newCar) {
+    _carApi.post('', newCar)
+      .then(res => {
+        let serverCar = res.data.data
+        let car = new Car(serverCar)
+        let cars = this.Cars
+        cars.unshift(car)
+        setState('cars', cars)
+      })
+      .catch(err => console.error(err))
+
   }
 
 }
